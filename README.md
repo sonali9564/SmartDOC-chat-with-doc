@@ -1,6 +1,6 @@
 # SmartDOC-chat-with-doc
 # SmartDOC: Interactive Document Conversations with AI 📄💬
-Transform your documents into intelligent, interactive Q&amp;A sessions with SmartDOC. Upload PDFs, Word, PPT, or Text files, and get instant, context-aware responses powered by LLAMA 3.3 and FAISS. Simplify knowledge extraction, save time, and enhance productivity with this user-friendly AI tool!
+Transform your documents into intelligent, interactive Q&amp;A sessions with SmartDOC. Upload PDFs, Word, PPT, or Text files, and get instant, context-aware responses powered by LLAMA 3.3 70b-versatile model and FAISS. Simplify knowledge extraction, save time, and enhance productivity with this user-friendly AI tool!
 
 ## 📖 About SmartDOC
 
@@ -26,7 +26,7 @@ SmartDOC is designed to make interacting with documents effortless and insightfu
 ### 🌟 Unique Features:
 - Supports **multi-format documents** (PDF, Word, PowerPoint, Text).
 - **Real-time processing** for instant insights.
-- **State-of-the-art AI** (LLAMA 3.3 and FAISS) for accurate, context-aware responses.
+- **State-of-the-art AI** (LLAMA 3.3 70b-versatile model and FAISS) for accurate, context-aware responses.
 - **Easy-to-use interface** powered by Streamlit.
 
 ---
