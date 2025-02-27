@@ -34,7 +34,6 @@ class CustomDocument:
         self.metadata = metadata or {}
 
 
-
 # Function to load documents based on file type (PDF, Word, PowerPoint, Text)
 def load_document(file_path):
     file_extension = file_path.split('.')[-1].lower()
@@ -120,13 +119,13 @@ def chunk_document(doc, text_splitter):
     return text_splitter.split_documents([doc])
 
 
-# Function to set up the vector store with more refined chunking
+# Enhanced setup_vectorstore function with chunk size adjustments and better chunk overlap
 def setup_vectorstore(documents):
     embeddings = HuggingFaceEmbeddings(model_name="allenai/scibert_scivocab_uncased")  # SciBERT for better academic content understanding
     text_splitter = CharacterTextSplitter(
         separator="\n",  # Split documents by newlines for structured content
-        chunk_size=500,  # Chunk size optimized for academic papers
-        chunk_overlap=50  # Moderate overlap for maintaining context across chunks
+        chunk_size=1000,  # Increase chunk size to ensure that chunks are complete
+        chunk_overlap=200  # Larger overlap to retain context across chunks
     )
 
     # Parallel processing of document chunks
@@ -139,13 +138,15 @@ def setup_vectorstore(documents):
     return vectorstore
 
 
-# Function to create the conversation chain
-def create_chain(vectorstore):
+# Function to create the conversation chain with better parameters for complete answers
+def create_chain(vectorstore, creativity_level, num_chunks, response_type):
     llm = ChatGroq(
         model="llama-3.3-70b-versatile",  # Ensure you're using a detailed model
-        temperature=0.2
+        temperature=creativity_level
     )
-    retriever = vectorstore.as_retriever(search_type="similarity", search_kwargs={"k": 5})
+
+    # Increase k value to allow the model to access more relevant chunks
+    retriever = vectorstore.as_retriever(search_type="similarity", search_kwargs={"k": num_chunks * 2})
 
     # Use 'stuff' instead of 'refine' to generate more concise answers without extra explanation
     chain = ConversationalRetrievalChain.from_llm(
@@ -202,19 +203,19 @@ with st.expander("**About this app**"):
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
+# Sidebar: Add sliders for creativity level and number of retrieved chunks
+with st.sidebar:
+    st.header("Response Parameters")
+    creativity_level = st.slider("**Creativity Level**", 0.00, 1.0, 0.2, 0.01)
+    num_chunks = st.slider("**Number of Retrieved Chunks**", 1, 10, 5)
+    response_type = st.radio("**Response Type**", ["Brief", "Elaborate"])
+
 # Layout: File upload section
 uploaded_files = st.file_uploader(label="Upload your documents", type=["pdf", "docx", "pptx", "txt"],
                                   accept_multiple_files=True)
 
-# Layout: User Question input
-user_input = st.text_input("Enter your questions:")
-
-# Voice input button
-if st.button("Ask via Voice"):
-    voice_query = handle_voice_query()
-    if voice_query:
-        user_input = voice_query
-        st.info(f"Question: {user_input}")
+# Initialize user_input as None
+user_input = None
 
 # Document processing and question-answering logic after file upload
 if uploaded_files:
@@ -245,12 +246,24 @@ if uploaded_files:
             st.session_state.vectorstore = setup_vectorstore(all_documents)
 
         if "conversation_chain" not in st.session_state:
-            st.session_state.conversation_chain = create_chain(st.session_state.vectorstore)
+            st.session_state.conversation_chain = create_chain(st.session_state.vectorstore, creativity_level, num_chunks, response_type)
 
         # Log the processing time
         end_time = time.time()
         start_time = time.time()  # Define start time
         st.success(f"Documents processed in {end_time - start_time:.2f} seconds")
+
+    # Show the input fields for asking questions and voice input after documents are uploaded
+    user_input = st.text_input("Enter your questions:")
+
+    # Voice input button
+    if st.button("Ask via Voice"):
+        voice_query = handle_voice_query()
+        if voice_query:
+            user_input = voice_query
+            st.info(f"Question: {user_input}")
+            # Display the notification below the question
+            st.success(f"Answer for your question '{user_input}' has been generated.")
 
 # Display chat history
 for message in st.session_state.chat_history:
@@ -259,8 +272,7 @@ for message in st.session_state.chat_history:
 
 # Handling user inputs (queries)
 if user_input:
-    st.session_state.chat_history.append({"role": "user", "content": user_input})
-
+    # Display the user input as a chat message
     with st.chat_message("user"):
         st.markdown(user_input)
 
@@ -278,14 +290,16 @@ if user_input:
         response = st.session_state.conversation_chain(query_with_history)
         assistant_response = response["answer"]
 
-        # Filter out verbose explanations like "Given the new context...".
-        cleaned_response = re.sub(r'(Given the new context.?refine the summary\.)|(^\s*There is no document to summarize.)', '', assistant_response, flags=re.DOTALL).strip()
+        # Modify response type based on user selection
+        if response_type == "Brief":
+            assistant_response = assistant_response[:500]  # Limit to first 500 characters
 
         # Provide the final cleaned answer
         with st.chat_message("assistant"):
-            st.markdown(f"Answer for your question '{user_input}' has been generated.")
-            st.markdown(cleaned_response)
-            st.session_state.chat_history.append({"role": "assistant", "content": cleaned_response})
+            st.markdown(assistant_response)
+            # Append both question and answer to the chat history sequentially
+            st.session_state.chat_history.append({"role": "user", "content": user_input})
+            st.session_state.chat_history.append({"role": "assistant", "content": assistant_response})
 
     except Exception as e:
         st.error(f"Error during processing: {e}")
